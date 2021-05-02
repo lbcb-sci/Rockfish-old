@@ -163,6 +163,7 @@ def test(args):
                 out.write(tmp_f.read())
             os.remove(worker_path)
 
+
 def get_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('checkpoint', type=str)
@@ -192,10 +193,12 @@ def get_arguments():
 
     return parser.parse_args()
 
+
 def main():
     args = get_arguments()
 
     test(args)
+
 
 if __name__ == "__main__":
     main()

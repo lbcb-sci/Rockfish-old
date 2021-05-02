@@ -47,7 +47,7 @@ def high_confidence_filter(
     that has coverage of at least 10 reads and having all reads modified or unmodified
     (modification frequency of 0% or 100%).
 
-    :param genomic_pos: Genomic positions that is tested. Not used
+    :param genomic_pos: Genomic position that is tested. Not used
     :param mod_info: Modification information for the given positions
     :return: True if position is high confidence position, False otherwise
     """

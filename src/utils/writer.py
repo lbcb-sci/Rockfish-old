@@ -47,7 +47,6 @@ class HDF5Writer(DataWriter):
         self.filename = filename
         self.generation_info = generation_info
 
-
     def __enter__(self):
         self.fd = h5py.File(self.filename, 'w', libver='latest')
 
@@ -153,7 +152,7 @@ class BinaryWriter(DataWriter):
 
     @staticmethod
     def on_extraction_finish(*args, **kwargs) -> None:
-        """Function that concatenates temporary files into a single output and removes temporary files."""
+        """ Function that concatenates temporary files into a single output and removes temporary files. """
 
         src_path = Path(kwargs['path'], '*.bin.tmp')
         dest_path = Path(kwargs['path'], 'data.bin')

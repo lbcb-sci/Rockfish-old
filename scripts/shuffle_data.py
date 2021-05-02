@@ -105,7 +105,7 @@ def create_args():
 
     check_size_parser.add_argument('-i', '--input_path', type=str, required=True)
     
-    #Shuffle command
+    # Shuffle command
     shuffle_parser = subparsers.add_parser('shuffle', help='Shuffle dataset.')
     check_size_parser.set_defaults(command=shuffle)
 

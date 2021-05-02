@@ -17,7 +17,7 @@ DATA_DTYPE = np.dtype([('signal', np.float16, (340,)), ('kmer', np.uint8, (17,))
 
 def dataset_size(path):
     length, r = divmod(os.path.getsize(path), DATA_DTYPE.itemsize)
-    assert r == 0, 'Cannot calculate number of examples. Possibly wrong data file.'
+    assert r == 0, 'Cannot calculate a number of examples. Possibly wrong data file.'
 
     return length
 
@@ -109,7 +109,7 @@ class RockfishDataModule(LightningDataModule):
                         pin_memory=True, worker_init_fn=worker_init_fn)
 
     @classmethod
-    def add_argparse_args(cls, parent_parser) :
+    def add_argparse_args(cls, parent_parser):
         parser = argparse.ArgumentParser(parents=[parent_parser], add_help=False)
 
         parser.add_argument('train_path', type=str)

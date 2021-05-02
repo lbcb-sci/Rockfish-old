@@ -91,11 +91,11 @@ def process_read(
         sample_size: int=20,
         window: int=8,
         bed_pos: Optional[Set[GenomicPos]]=None) -> Optional[FeaturesData]:
-    """ This function process the given read to generate data.
+    """ This function processes the given read to generate data.
 
-    This function process extracts resegmentation information, samples the signal and extracts alignment data.
+    This function extracts resegmentation information, samples the signal and extracts alignment data.
 
-    :param path: Path to the signle FAST5 read
+    :param path: Path to the single FAST5 read
     :param reseg_path: Resegmentation path in re-segmented FAST5 file
     :param norm_method: Signal normalization method
     :param motif: Motif for which positions will be extracted
@@ -145,7 +145,7 @@ def init_workers(
 
 
 def worker_process_reads(paths: List[Path], out_path: Path) -> Tuple[Path, int]:
-    """ Function that process input file list and stores generated data
+    """ Function that processes input file list and stores generated data
 
     :param paths: List of input files that will be processed
     :param out_path: Path to the generated output
