@@ -52,7 +52,7 @@ def align_mappy(dir_in, file_out, file_fasta):
 
 
 if __name__ == '__main__':
-    modification = 'nomod'
+    modification = 'nomod'  # 'mod' or 'nomod'
     dir_in = Path(f'/home/sdeur/tmp-guppy/{modification}/workspace')
     file_out = f'/home/sdeur/tmp-mappy/mappy_{modification}.csv'
     file_fasta = '/home/sdeur/data/ecoli_k12_mg1655.fasta'

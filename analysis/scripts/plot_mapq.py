@@ -42,7 +42,7 @@ def get_mapqs(dir_in, file_fasta):
 
 
 if __name__ == '__main__':
-    modification = 'nomod'
+    modification = 'nomod'  # 'mod' or 'nomod'
     dir_in = Path(f'/home/sdeur/tmp-guppy/{modification}/workspace')
     file_fasta = '/home/sdeur/data/ecoli_k12_mg1655.fasta'
 
