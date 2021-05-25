@@ -90,7 +90,7 @@ def count_CG(ref, query):
 
 
 def analyse_CG(dir_in, file_out, file_fasta):
-    a = mp.Aligner(file_fasta)  # Load or build index
+    a = mp.Aligner(file_fasta, preset='map-ont')  # Load or build index
     if not a:
         raise Exception("ERROR: failed to load/build index")
 

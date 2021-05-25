@@ -19,7 +19,7 @@ def plot_distribution(data, modification, bins=15):
 
 
 def get_mapqs(dir_in, file_fasta):
-    a = mp.Aligner(file_fasta)  # Load or build index
+    a = mp.Aligner(file_fasta, preset='map-ont')  # Load or build index
     if not a:
         raise Exception("ERROR: failed to load/build index")
 

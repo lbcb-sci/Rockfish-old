@@ -10,7 +10,7 @@ from util import get_files, read_fastq
 
 
 def align_mappy(dir_in, file_out, file_fasta):
-    a = mp.Aligner(file_fasta)  # Load or build index
+    a = mp.Aligner(file_fasta, preset='map-ont')  # Load or build index
     if not a:
         raise Exception("ERROR: failed to load/build index")
 
