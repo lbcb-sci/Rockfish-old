@@ -244,10 +244,8 @@ def create_arguments() -> argparse.Namespace:
     parser.add_argument('output_path', type=Path,
                         help='Path to the desired output folder')
 
-    # Resegmentation path in FAST5
-    parser.add_argument('--reseg_path', type=str, default=DEFAULT_RESEGMENTATION_PATH,
-                        help='''Path to resegmentation group in FAST5 file
-                (default: Analyses/RawGenomeCorrected_000/BaseCalled_template)''')
+    parser.add_argument('--reference', type=str, required=True,
+                        help='Path to the reference file')
 
     parser.add_argument('--norm_method', type=str, default='standardization',
                         help='Function name to use for signal normalization (default: standardization)')
@@ -255,9 +253,6 @@ def create_arguments() -> argparse.Namespace:
     parser.add_argument('--motif', type=str, default='CG',
                         help='''Motif to be searched for in the sequences. 
                 Regular expressions can be used. (default: CG)''')
-
-    parser.add_argument('--sample_size', type=int, default=20,
-                        help='Sample size for every base in the given k-mer. (default: 20)')
 
     parser.add_argument('--window', type=int, default=8,
                         help='''Window size around central position. 

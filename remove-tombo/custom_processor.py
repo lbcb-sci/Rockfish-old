@@ -6,8 +6,39 @@ from Bio import SeqIO
 import re
 import numpy as np
 
+from util import ResegmentationData
 
-# config='dna_r9.4.1_450bps_hac.cfg' for more precise basecalling
+
+def make_aligner(reference_file):
+    aligner = mp.Aligner(reference_file, preset='map-ont')  # Load or build index
+    if not aligner:
+        raise Exception("ERROR: failed to load/build index")
+
+    return aligner
+
+
+def get_reference(reference_file):
+    for seq_record in SeqIO.parse(reference_file, 'fasta'):
+        reference = str(seq_record.seq)
+
+    return reference
+
+
+def get_motif_positions(reference, motif, index):
+    r_len = len(reference)
+
+    # Forward strand
+    fwd_matches = re.finditer(motif, reference, re.I)
+    fwd_pos = set(m.start() + index for m in fwd_matches)
+
+    # Reverse strand
+    rev_matches = re.finditer(motif, mp.revcomp(reference), re.I)
+    rev_pos = set(r_len - (m.start() + index) - 1 for m in rev_matches)
+
+    return fwd_pos, rev_pos
+
+
+# config='dna_r9.4.1_450bps_hac' for more precise basecalling
 def basecall(read_file, config='dna_r9.4.1_450bps_fast'):
     with GuppyBasecallerClient(config_name=config, trace=True) as client:
         for read in yield_reads(read_file):
@@ -15,12 +46,8 @@ def basecall(read_file, config='dna_r9.4.1_450bps_fast'):
             return read, called
 
 
-def align(reference_file, query, mapq):
-    a = mp.Aligner(reference_file, preset='map-ont')  # Load or build index
-    if not a:
-        raise Exception("ERROR: failed to load/build index")
-
-    for hit in a.map(query):  # Traverse alignments
+def align(aligner, query, mapq):
+    for hit in aligner.map(query):  # Traverse alignments
         if hit.is_primary:  # Check if the alignment is primary
             if hit.mapq < mapq:  # Check if the mapping quality is below set threshold
                 return None
@@ -29,25 +56,15 @@ def align(reference_file, query, mapq):
     return None
 
 
-def get_motif_positions(reference_file, alignment, motif, index):
-    for seq_record in SeqIO.parse(reference_file, 'fasta'):
-        reference = str(seq_record.seq[alignment.r_st: alignment.r_en])
+def get_relevant_motif_positions(motif_positions, alignment):
+    strand_pos = motif_positions[0] if alignment.strand == 1 else motif_positions[1]
 
-    if alignment.strand == -1:  # Reverse alignment strand
-        reference = mp.revcomp(reference)
+    relevant_positions = strand_pos & set(range(alignment.r_st, alignment.r_en))
 
-    return [m.start() + index for m in re.finditer(motif, reference, re.I)]
-
-
-def sequence_to_raw(read, called):
-    first_signal_id = len(read.signal) - called.trimmed_samples
-    move_index = np.nonzero(called.move)[0]
-
-    seq_to_raw_start = first_signal_id + move_index * called.model_stride
-    seq_to_raw_len = np.diff(seq_to_raw_start, append=len(read.signal))
-    seq_to_raw_end = seq_to_raw_start + seq_to_raw_len
-
-    return list(zip(seq_to_raw_start, seq_to_raw_end))
+    if alignment.strand == 1:
+        return {p - alignment.r_st for p in relevant_positions}
+    else:
+        return {alignment.r_en - 1 - p for p in relevant_positions}
 
 
 def reference_to_basecall(alignment):
@@ -70,6 +87,17 @@ def reference_to_basecall(alignment):
                 ref_to_bc.append((qpos, qpos))
 
     return ref_to_bc
+
+
+def sequence_to_raw(read, called):
+    first_signal_id = len(read.signal) - called.trimmed_samples
+    move_index = np.nonzero(called.move)[0]
+
+    seq_to_raw_start = first_signal_id + move_index * called.model_stride
+    seq_to_raw_len = np.diff(seq_to_raw_start, append=len(read.signal))
+    seq_to_raw_end = seq_to_raw_start + seq_to_raw_len
+
+    return list(zip(seq_to_raw_start, seq_to_raw_end))
 
 
 def resolve_insertions(position, ref_to_bc, seq_to_raw, window):
@@ -136,27 +164,43 @@ def resolve_region(position, ref_to_bc, seq_to_raw, window):
     return signal_intervals
 
 
-def custom_processor(fast5_file, reference_file, mapq=0, motif='CG', index=0, window=8):
+def custom_processor(fast5_file, aligner, reference, motif_positions, mapq, window):
     read, called = basecall(fast5_file)
 
-    alignment = align(reference_file, called.seq, mapq)
+    alignment = align(aligner, called.seq, mapq)
     if not alignment:
-        return
+        return None
 
-    motif_positions = get_motif_positions(reference_file, alignment, motif, index)
+    relevant_motif_positions = get_relevant_motif_positions(motif_positions, alignment)
 
     ref_to_bc = reference_to_basecall(alignment)
     seq_to_raw = sequence_to_raw(read, called)
 
-    for motif_position in motif_positions:
+    for motif_position in relevant_motif_positions:
         event_intervals = resolve_region(motif_position, ref_to_bc, seq_to_raw, window)
         if event_intervals is None:
             continue
 
         position = alignment.r_st + motif_position
         event_lens = [end - start for start, end in event_intervals]
+        bases = reference[position - window: position + window + 1]
 
-        print(f'position: {position}\nevent_intervals: {event_intervals}\nevent_lens:{event_lens}\n')
+        return ResegmentationData(position, event_intervals, event_lens, bases)
+
+
+def process_data(dir_in, reference_file, mapq=0, motif='CG', index=0, window=8):
+    fast5_files = get_fast5_files(dir_in, recursive=True)
+
+    aligner = make_aligner(reference_file)
+    reference = get_reference(reference_file)
+    motif_positions = get_motif_positions(reference, motif, index)
+
+    for fast5_file in tqdm(fast5_files):
+        resegmentation_data = custom_processor(fast5_file, aligner, reference, motif_positions, mapq, window)
+        if resegmentation_data is None:
+            continue
+
+        print(resegmentation_data)
 
 
 if __name__ == '__main__':
@@ -164,7 +208,4 @@ if __name__ == '__main__':
     dir_in = Path(f'/home/sdeur/data/{modification}')
     reference_file = '/home/sdeur/data/ecoli_k12_mg1655.fasta'
 
-    fast5_files = get_fast5_files(dir_in, recursive=True)
-
-    for fast5_file in tqdm(fast5_files):
-        custom_processor(fast5_file, reference_file)
+    process_data(dir_in, reference_file)
