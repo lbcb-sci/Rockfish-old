@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 from pyguppyclient import get_fast5_files
 import mappy
@@ -174,8 +175,9 @@ def custom_processor(basecall_data: Tuple, aligner: mappy.Aligner, reference: st
     return resegmentation_data
 
 
-def process_data(dir_in: Path, reference_file: str, mapq: int = 0, motif: str = 'CG', index: int = 0, window: int = 8):
-    fast5_files = get_fast5_files(dir_in, recursive=True)
+def process_data(input_path: str, recursive: bool, reference_file: str,
+                 mapq: int = 0, motif: str = 'CG', index: int = 0, window: int = 8):
+    fast5_files = get_fast5_files(input_path, recursive=recursive)
 
     aligner = make_aligner(reference_file)
     reference = get_reference(reference_file)
@@ -188,9 +190,22 @@ def process_data(dir_in: Path, reference_file: str, mapq: int = 0, motif: str = 
             print(resegmentation_data)
 
 
-if __name__ == '__main__':
-    modification = 'mod'  # 'mod' or 'nomod'
-    dir_in = Path(f'/home/sdeur/data/{modification}')
-    reference_file = '/home/sdeur/data/ecoli_k12_mg1655.fasta'
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Custom processor')
 
-    process_data(dir_in, reference_file)
+    parser.add_argument('-i', '--input_path', type=str, required=True,
+                        help='Path to the input file or folder containing FAST5 files')
+
+    parser.add_argument('-r', '--recursive', action='store_true',
+                        help='Flag to indicate if folder will be searched recursively (default: False)')
+
+    parser.add_argument('--reference', type=str, required=True,
+                        help='Path to the reference file')
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    args = parse_arguments()
+
+    process_data(args.input_path, args.recursive, args.reference)
