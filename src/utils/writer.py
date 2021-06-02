@@ -110,6 +110,7 @@ class HDF5Writer(DataWriter):
 class BinaryWriter(DataWriter):
     """ Implementation of DataWriter that stores data in binary file. """
 
+    # TODO remove the hardcoded values
     TRAIN_DTYPE = np.dtype([('signal', np.float16, (340,)), ('kmer', np.uint8, (17,)), ('label', np.uint8)])
 
     def __init__(self, filename: str) -> None:
@@ -132,7 +133,10 @@ class BinaryWriter(DataWriter):
         :param bed_info: Optional BED modification information used for labeling
         :param label: Optional integer present if label is explicitly given
         """
+        self.fd.write(np.array(len(data.examples)).tobytes())  # Write the number of examples
+
         array = np.empty((len(data.examples),), dtype=BinaryWriter.TRAIN_DTYPE)
+        no_of_bytes = np.empty((len(data.examples),))
 
         for i, example in enumerate(data.examples):
             array[i]['signal'] = example.signal_points
@@ -147,8 +151,12 @@ class BinaryWriter(DataWriter):
             else:
                 raise ValueError('No label was provided.')
 
+            no_of_bytes[i] = len(array[i].tobytes())
+
+        self.fd.write(no_of_bytes.tobytes())  # Write the number of bytes for every example
+
         array_bytes = array.tobytes()
-        self.fd.write(array_bytes)
+        self.fd.write(array_bytes)  # Write the examples
 
     @staticmethod
     def on_extraction_finish(*args, **kwargs) -> None:
