@@ -1,5 +1,4 @@
 import argparse
-from pathlib import Path
 from pyguppyclient import get_fast5_files
 import mappy
 from Bio import SeqIO
@@ -164,9 +163,12 @@ def custom_processor(basecall_data: Tuple, aligner: mappy.Aligner, reference: st
             continue
 
         position = alignment.r_st + motif_position if alignment.strand == 1 else alignment.r_en - 1 - motif_position
+
         event_intervals = signal_intervals[motif_position - window: motif_position + window + 1]
-        event_lens = [interval.end - interval.start for interval in event_intervals]
-        bases = reference[position - window: position + window + 1]
+        event_lens = np.array([interval.end - interval.start for interval in event_intervals])
+
+        region = reference[position - window: position + window + 1]
+        bases = region if alignment.strand == 1 else mappy.revcomp(region)
 
         assert len(event_intervals) == len(event_lens) == len(bases)
 
