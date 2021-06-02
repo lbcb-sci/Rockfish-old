@@ -1,5 +1,6 @@
 import argparse
 from pyguppyclient import get_fast5_files
+from pyguppyclient.decode import ReadData, CalledReadData
 import mappy
 from Bio import SeqIO
 import re
@@ -138,8 +139,8 @@ def resolve_deletions(signal_intervals: List[Interval], deletion_idx: List[Inter
     return signal_intervals
 
 
-def custom_processor(basecall_data: Tuple, aligner: mappy.Aligner, reference: str, motif_positions: Set[int],
-                     mapq: int, window: int) -> ResegmentationData:
+def custom_processor(basecall_data: Tuple[ReadData, CalledReadData], aligner: mappy.Aligner, reference: str,
+                     motif_positions: Set[int], mapq: int, window: int) -> ResegmentationData:
     read, called = basecall_data
 
     alignment = align(aligner, called.seq, mapq)

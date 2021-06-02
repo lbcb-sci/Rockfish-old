@@ -1,15 +1,17 @@
+from pyguppyclient.decode import ReadData, CalledReadData
 import mappy
+import numpy as np
 
-from typing import Tuple, Set, Optional
+from typing import Tuple, Set, List, Optional
 
 from .alignment import make_aligner, get_reference, get_motif_positions
 from .basecall import sequence_to_raw
-from .util import *
+from .util import Interval, ResegmentationData
 
 
 class CustomProcessor:
     def __init__(self,
-                 basecall_data,
+                 basecall_data: Tuple[ReadData, CalledReadData],
                  reference_file: str,
                  mapq: int = 0,
                  motif: str = 'CG',

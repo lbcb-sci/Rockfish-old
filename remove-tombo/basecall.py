@@ -1,13 +1,14 @@
 from pyguppyclient import GuppyBasecallerClient, yield_reads
+from pyguppyclient.decode import ReadData, CalledReadData
 import numpy as np
 
-from typing import List
+from typing import Tuple, List
 
 from util import Interval
 
 
 # config='dna_r9.4.1_450bps_hac' for more precise basecalling
-def basecall(files: List[str], config: str = 'dna_r9.4.1_450bps_fast'):
+def basecall(files: List[str], config: str = 'dna_r9.4.1_450bps_fast') -> Tuple[ReadData, CalledReadData]:
     with GuppyBasecallerClient(config_name=config, trace=True) as client:
         for file in files:
             for read in yield_reads(file):
@@ -15,7 +16,7 @@ def basecall(files: List[str], config: str = 'dna_r9.4.1_450bps_fast'):
                 yield read, called
 
 
-def sequence_to_raw(read, called) -> List[Interval]:
+def sequence_to_raw(read: ReadData, called: CalledReadData) -> List[Interval]:
     first_signal_id = len(read.signal) - called.trimmed_samples
     move_index = np.nonzero(called.move)[0]
 
