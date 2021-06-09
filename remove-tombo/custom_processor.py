@@ -7,7 +7,7 @@ import re
 from tqdm import tqdm
 import numpy as np
 
-from typing import Tuple, Set, List, Optional
+from typing import Tuple, Set, List, Dict, Optional
 
 from basecall import basecall, sequence_to_raw
 from util import Interval, ResegmentationData
@@ -21,25 +21,30 @@ def make_aligner(reference_file: str) -> mappy.Aligner:
     return aligner
 
 
-def get_reference(reference_file: str) -> str:
-    for seq_record in SeqIO.parse(reference_file, 'fasta'):
-        reference = str(seq_record.seq)
+def get_motif_positions(reference_file: str, motif: str, index: int) -> Dict[str, Tuple[Set[int], Set[int]]]:
+    chromosomes = SeqIO.to_dict(SeqIO.parse(reference_file, 'fasta'))
+    motif_positions = dict()
 
-    return reference
+    for chromosome, record in chromosomes.items():
+        reference = str(record.seq)
+
+        # Forward strand
+        fwd_matches = re.finditer(motif, reference, re.I)
+        fwd_pos = set(m.start() + index for m in fwd_matches)
+
+        # Reverse strand
+        rev_matches = re.finditer(motif, mappy.revcomp(reference), re.I)
+        rev_pos = set(len(reference) - (m.start() + index) - 1 for m in rev_matches)
+
+        motif_positions[chromosome] = fwd_pos, rev_pos
+
+    return motif_positions
 
 
-def get_motif_positions(reference: str, motif: str, index: int) -> Tuple[Set[int], Set[int]]:
-    r_len = len(reference)
+def get_reference(reference_file: str, contig: str) -> str:
+    chromosomes = SeqIO.to_dict(SeqIO.parse(reference_file, 'fasta'))
 
-    # Forward strand
-    fwd_matches = re.finditer(motif, reference, re.I)
-    fwd_pos = set(m.start() + index for m in fwd_matches)
-
-    # Reverse strand
-    rev_matches = re.finditer(motif, mappy.revcomp(reference), re.I)
-    rev_pos = set(r_len - (m.start() + index) - 1 for m in rev_matches)
-
-    return fwd_pos, rev_pos
+    return str(chromosomes[contig].seq)
 
 
 def align(aligner: mappy.Aligner, query: str, mapq: int) -> Optional[mappy.Alignment]:
@@ -51,10 +56,11 @@ def align(aligner: mappy.Aligner, query: str, mapq: int) -> Optional[mappy.Align
     return None
 
 
-def get_relevant_motif_positions(motif_positions: Tuple[Set[int], Set[int]], alignment: mappy.Alignment) -> Set[int]:
-    strand_pos = motif_positions[0] if alignment.strand == 1 else motif_positions[1]
+def get_relevant_motif_positions(motif_positions: Dict[str, Tuple[Set[int], Set[int]]], alignment: mappy.Alignment) -> Set[int]:
+    contig_positions = motif_positions[alignment.ctg]
+    strand_positions = contig_positions[0] if alignment.strand == 1 else contig_positions[1]
 
-    relevant_positions = strand_pos & set(range(alignment.r_st, alignment.r_en))
+    relevant_positions = strand_positions & set(range(alignment.r_st, alignment.r_en))
 
     if alignment.strand == 1:
         return {pos - alignment.r_st for pos in relevant_positions}
@@ -139,8 +145,8 @@ def resolve_deletions(signal_intervals: List[Interval], deletion_idx: List[Inter
     return signal_intervals
 
 
-def custom_processor(basecall_data: Tuple[ReadData, CalledReadData], aligner: mappy.Aligner, reference: str,
-                     motif_positions: Set[int], mapq: int, window: int) -> ResegmentationData:
+def custom_processor(basecall_data: Tuple[ReadData, CalledReadData], aligner: mappy.Aligner, reference_file: str,
+                     motif_positions: Dict[str, Tuple[Set[int], Set[int]]], mapq: int, window: int) -> ResegmentationData:
     read, called = basecall_data
 
     alignment = align(aligner, called.seq, mapq)
@@ -168,6 +174,7 @@ def custom_processor(basecall_data: Tuple[ReadData, CalledReadData], aligner: ma
         event_intervals = signal_intervals[motif_position - window: motif_position + window + 1]
         event_lens = np.array([interval.end - interval.start for interval in event_intervals])
 
+        reference = get_reference(reference_file, alignment.ctg)
         region = reference[position - window: position + window + 1]
         bases = region if alignment.strand == 1 else mappy.revcomp(region)
 
@@ -183,11 +190,10 @@ def process_data(input_path: str, recursive: bool, reference_file: str,
     fast5_files = get_fast5_files(input_path, recursive=recursive)
 
     aligner = make_aligner(reference_file)
-    reference = get_reference(reference_file)
-    motif_positions = get_motif_positions(reference, motif, index)
+    motif_positions = get_motif_positions(reference_file, motif, index)
 
     for basecall_data in tqdm(basecall(fast5_files)):
-        resegmentation_data = custom_processor(basecall_data, aligner, reference, motif_positions, mapq, window)
+        resegmentation_data = custom_processor(basecall_data, aligner, reference_file, motif_positions, mapq, window)
 
         if resegmentation_data:
             print(resegmentation_data)

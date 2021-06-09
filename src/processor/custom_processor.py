@@ -18,12 +18,13 @@ class CustomProcessor:
                  index: int = 0,
                  window: int = 8):
         self.basecall_data = basecall_data
+        self.reference_file = reference_file
+
         self.mapq = mapq
         self.window = window
 
         self.aligner = make_aligner(reference_file)
-        self.reference = get_reference(reference_file)
-        self.motif_positions = get_motif_positions(self.reference, motif, index)
+        self.motif_positions = get_motif_positions(reference_file, motif, index)
 
     def align(self, query: str) -> Optional[mappy.Alignment]:
         for hit in self.aligner.map(query):  # Traverse alignments
@@ -34,9 +35,10 @@ class CustomProcessor:
         return None
 
     def _get_relevant_motif_positions(self, alignment: mappy.Alignment) -> Set[int]:
-        strand_pos = self.motif_positions[0] if alignment.strand == 1 else self.motif_positions[1]
+        contig_positions = self.motif_positions[alignment.ctg]
+        strand_positions = contig_positions[0] if alignment.strand == 1 else contig_positions[1]
 
-        relevant_positions = strand_pos & set(range(alignment.r_st, alignment.r_en))
+        relevant_positions = strand_positions & set(range(alignment.r_st, alignment.r_en))
 
         if alignment.strand == 1:
             return {pos - alignment.r_st for pos in relevant_positions}
@@ -148,7 +150,8 @@ class CustomProcessor:
             event_intervals = signal_intervals[motif_position - self.window: motif_position + self.window + 1]
             event_lens = np.array([interval.end - interval.start for interval in event_intervals])
 
-            region = self.reference[position - self.window: position + self.window + 1]
+            reference = get_reference(self.reference_file, alignment.ctg)
+            region = reference[position - self.window: position + self.window + 1]
             bases = region if alignment.strand == 1 else mappy.revcomp(region)
 
             assert len(event_intervals) == len(event_lens) == len(bases)
