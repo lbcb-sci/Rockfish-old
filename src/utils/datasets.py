@@ -13,13 +13,15 @@ from tqdm import tqdm
 
 
 # DATA_DTYPE = np.dtype([('signal', np.float16, (340,)), ('kmer', np.uint8, (17,)), ('label', np.uint8)])
+NUM_16 = 2  # 2 bytes
+NUM_8 = 1  # 1 byte
 
 
 def dataset_size(path):
-    with io.open(path.replace('data.bin', 'header.bin'), 'rb') as f:
-        signal = np.fromfile(f, dtype=np.uint16)
+    with io.open(path, 'rb') as f:
+        number_of_examples = np.frombuffer(f.read(NUM_16), dtype=np.uint16)[0]
 
-    return len(signal)
+    return number_of_examples
 
 
 def different_length_error(filename, read_name):
@@ -30,19 +32,18 @@ def different_length_error(filename, read_name):
 class MemoryDataset(Dataset):
     def __init__(self, path):
         self.data = io.open(path, 'rb')
+        self.len = dataset_size(path)  # Number of examples
 
         with open(path.replace('data.bin', 'info.txt')) as f:
             window = int(f.readlines()[4].split()[1])
-            self.kmer = window * 2 + 1
+            self.kmer = 2 * window + 1  # Length of kmer
 
-        with io.open(path.replace('data.bin', 'header.bin'), 'rb') as f:
-            self.signal = np.fromfile(f, dtype=np.uint16)
-
-        self.example_bytes = self.signal * 2 + self.kmer * 3 + 1  # Lengths of examples in bytes
-        self.offset = np.concatenate(([0], self.example_bytes)).cumsum()[:-1]
+        self.signal = np.frombuffer(self.data.read(NUM_16 * self.len), dtype=np.uint16)  # Lengths of signals
+        example_bytes = NUM_16 * self.signal + (NUM_16 + NUM_8) * self.kmer + NUM_8  # Lengths of examples in bytes
+        self.offset = np.concatenate(([0], example_bytes)).cumsum()[:-1]  # Offsets in bytes
 
     def __len__(self):
-        return len(self.signal)
+        return self.len
 
     def __getitem__(self, idx):
         data_dtype = np.dtype([('signal', np.float16, (self.signal[idx],)),
@@ -50,10 +51,10 @@ class MemoryDataset(Dataset):
                                ('kmer', np.uint8, (self.kmer,)),
                                ('label', np.uint8)])
 
-        self.data.seek(self.offset[idx])
-        example = np.frombuffer(self.data.read(self.example_bytes[idx]), data_dtype)[0]
+        self.data.seek(NUM_16 + NUM_16 * self.len + self.offset[idx])
+        example = np.frombuffer(self.data.read(data_dtype.itemsize), data_dtype)[0]
 
-        signal = torch.from_numpy(example['signal'])
+        signal = torch.from_numpy(example['signal'].astype(np.float16))
         lens = example['lens']
         bases = torch.from_numpy(np.repeat(example['kmer'], lens).astype(int))
         label = example['label']

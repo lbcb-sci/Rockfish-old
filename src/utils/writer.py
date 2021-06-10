@@ -134,7 +134,7 @@ class BinaryWriter(DataWriter):
         :param bed_info: Optional BED modification information used for labeling
         :param label: Optional integer present if label is explicitly given
         """
-        no_of_signals = []
+        signal_lengths = []
 
         for example in data.examples:
             data_dtype = np.dtype([('signal', np.float16, (len(example.signal_points),)),
@@ -158,28 +158,41 @@ class BinaryWriter(DataWriter):
                 raise ValueError('No label was provided.')
 
             array_bytes = array.tobytes()
-            no_of_signals.append(len(array[0]['signal']))
+            signal_lengths.append(len(array[0]['signal']))
 
             self.data_fd.write(array_bytes)
 
-        self.header_fd.write(np.array(no_of_signals, dtype=np.uint16).tobytes())
+        self.header_fd.write(np.array(signal_lengths, dtype=np.uint16).tobytes())
 
     @staticmethod
     def on_extraction_finish(*args, **kwargs) -> None:
         """Function that concatenates temporary files into a single output and removes temporary files."""
 
-        src_path = Path(kwargs['path'], '*.data.bin.tmp')
-        dest_path = Path(kwargs['path'], 'data.bin')
-        cat_command = f'cat {src_path} > {dest_path}'
+        # Concatenate temporary data files
+        src_data_path = Path(kwargs['path'], '*.data.bin.tmp')
+        dest_data_path = Path(kwargs['path'], 'data_no_header.bin')
+        cat_command = f'cat {src_data_path} > {dest_data_path}'
         subprocess.run(cat_command, shell=True)
 
-        rm_command = f'rm {src_path}'
-        subprocess.run(rm_command, shell=True)
-
-        src_path = Path(kwargs['path'], '*.header.bin.tmp')
-        dest_path = Path(kwargs['path'], 'header.bin')
-        cat_command = f'cat {src_path} > {dest_path}'
+        # Concatenate temporary header files
+        src_header_path = Path(kwargs['path'], '*.header.bin.tmp')
+        dest_header_path = Path(kwargs['path'], 'header.bin')
+        cat_command = f'cat {src_header_path} > {dest_header_path}'
         subprocess.run(cat_command, shell=True)
 
-        rm_command = f'rm {src_path}'
+        # Add number of examples to the beginning of header file
+        with io.open(dest_header_path, 'rb+') as f:
+            header = np.fromfile(f, dtype=np.uint16)
+            no_of_examples = len(header)
+            header = np.concatenate(([no_of_examples], header))
+            f.seek(0)
+            f.write(header.astype('uint16').tobytes())
+
+        # Concatenate header and data file to a final data.bin file
+        final_data_path = Path(kwargs['path'], 'data.bin')
+        cat_command = f'cat {dest_header_path} {dest_data_path} > {final_data_path}'
+        subprocess.run(cat_command, shell=True)
+
+        # Delete unnecessary files
+        rm_command = f'rm {src_data_path} {src_header_path} {dest_data_path} {dest_header_path}'
         subprocess.run(rm_command, shell=True)
