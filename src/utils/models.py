@@ -446,11 +446,12 @@ class Example:
     """ Data class that contains information about one example.
 
     This data class stores information about example's position on the reference genome, reference k-mer around the
-    position and sampled signal points.
+    position, sampled signal points and lengths of intervals of signal points.
     """
     position: int
     ref_kmer: str
     signal_points: np.ndarray
+    event_lens: np.ndarray
 
 
 """@dataclass

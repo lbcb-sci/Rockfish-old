@@ -104,7 +104,7 @@ def generate_data(read: ReadData,
 
         example_points = np.concatenate(example_points)
 
-        example = Example(reseg_example.position, reseg_example.bases, example_points)
+        example = Example(reseg_example.position, reseg_example.bases, example_points, reseg_example.event_lens)
         all_examples.append(example)
 
     if len(all_examples) == 0:
@@ -178,17 +178,18 @@ def init_workers(
     _BED_DATA = bed_data
 
 
-def worker_process_reads(paths: List[Path], reference: str, out_path: Path) -> Tuple[Path, int]:
+def worker_process_reads(paths: List[Path], reference: str, data_path: Path, header_path: Path) -> Tuple[Path, int]:
     """ Function that processes input file list and stores generated data
 
     :param paths: List of input files that will be processed
     :param reference: Path to the reference file
-    :param out_path: Path to the generated output
+    :param data_path: Path to the generated output data
+    :param header_path: Path to the generated header
     :return: Path and number of failed files
     """
     error_files = 0
 
-    with BinaryWriter(str(out_path)) as writer:
+    with BinaryWriter(str(data_path), str(header_path)) as writer:
         bed_pos = set(_BED_DATA.keys()) if _BED_DATA is not None else None
 
         for path in tqdm(basecall(paths)):
@@ -198,10 +199,10 @@ def worker_process_reads(paths: List[Path], reference: str, out_path: Path) -> T
                 if result is not None:
                     writer.write_data(result, _BED_DATA, _INFO_ARGS['label'])
             except Exception as e:
-                # error_callback(path, e)
-                error_files += 1
+                error_callback(path, e)
+                # error_files += 1
 
-        return out_path, error_files
+        return data_path, error_files
 
 
 def tqdm_with_time(msg, last_action_time):
@@ -251,9 +252,10 @@ def process_data(args: argparse.Namespace) -> None:
             start = i * BATCH_SIZE
             end = min(start+BATCH_SIZE, len(files))
 
-            out_file_path = Path(args.output_path, f'{i+1}.bin.tmp')
+            data_path = Path(args.output_path, f'{i+1}.data.bin.tmp')
+            header_path = Path(args.output_path, f'{i+1}.header.bin.tmp')
 
-            future = executor.submit(worker_process_reads, files[start:end], args.reference, out_file_path)
+            future = executor.submit(worker_process_reads, files[start:end], args.reference, data_path, header_path)
             futures.append(future)
 
         tqdm_with_time('Extracting features', last_action_time)
