@@ -84,12 +84,12 @@ def write_mappings(mappings: Dict[str, List[Path]], out_folder: Path) -> None:
                 mapping_f.write(f'    {str(p)}\n')
 
 
-
 def get_read_id(path):
     with h5py.File(path, 'r') as f:
         read_name = list(f[FAST5_READS_PATH].keys())
         read_group = f[f'{FAST5_READS_PATH}/{read_name}']
         return read_group.attrs['read_id']
+
 
 def organize_fast5(fast5_path: Path, align_path: Path, out_folder: Path, recursive: bool = False) -> None:
     align_data = {}

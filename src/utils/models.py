@@ -43,7 +43,7 @@ class Strand(Enum):
 
 @dataclass(eq=True, frozen=True)
 class GenomicPos:
-    """ Dataclass that describes genomic position.
+    """ Data class that describes genomic position.
 
     Genomic position is uniquely defined with chromosome, position on the chromosome and strand.
     """
@@ -54,9 +54,9 @@ class GenomicPos:
 
 @dataclass(frozen=True)
 class ModInfo:
-    """ Dataclass that describes modification information.
+    """ Data class that describes modification information.
 
-    Dataclass contains information about coverage and modification frequency (usually for genomic position).
+    Data class contains information about coverage and modification frequency (usually for genomic position).
     """
     n_reads: int
     mod_freq: int
@@ -153,7 +153,7 @@ class Read:
     def get_read_id(self) -> str:
         """ Returns read id
 
-        :return: read id for given single FAST5 file
+        :return: read id for the given single FAST5 file
         """
         return self.fd[self.read_group_path].attrs['read_id'].decode()
 
@@ -174,7 +174,7 @@ class Read:
 
         Returns the raw signal for the given read. Optionally, it converts discrete signal to continuous signal.
 
-        :param continuous: True if returned signal should be continuous, otherwise false
+        :param continuous: True if returned signal should be continuous, otherwise False
         :return: Raw signal for the given read
         """
 
@@ -190,7 +190,7 @@ class Read:
     def signal_for_interval(self, interval: Interval, samples: int=20) -> Tuple[np.ndarray, np.ndarray]:
         """ Function that samples signal points from the given interval.
 
-        This function is used for sampling singal points from the given interval. If desired number of points is lower
+        This function is used for sampling signal points from the given interval. If desired number of points is lower
         than number of points in the given interval, some points are discarded. If desired number of points is higher,
         some of the points are repeated. Sampling is done by finding point indices using numpy linspace function.
 
@@ -264,7 +264,7 @@ class AlbacoreProcessor(BasecallerProcessor):
 
         points_to_data = {}
 
-        start, base_index = self.relative_start, 2  # we take quality for central base
+        start, base_index = self.relative_start, 2  # We take quality for central base
         for event_data in self.event_table:
             event_length = int(event_data['length'] * self.read.sampling_rate)
             end = start + event_length
@@ -353,9 +353,9 @@ class ResegmentationProcessor:
         return self.read.fd[self.events_path].attrs['read_start_rel_to_raw']
 
     def motif_positions(self, motif: str='CG', window: int=8, bed_pos: Set[GenomicPos]=None) -> Set[Interval]:
-        """ Function returns intervals that correspond to given motif.
+        """ Function returns intervals that correspond to the given motif.
 
-        This function extracts intervals that contain given motif. Start of the motif is the central
+        This function extracts intervals that contain the given motif. Start of the motif is the central
         index in the interval. If genomic positions are provided, only positions included in the given set will be
         returned.
 
@@ -446,11 +446,12 @@ class Example:
     """ Data class that contains information about one example.
 
     This data class stores information about example's position on the reference genome, reference k-mer around the
-    position and sampled signal points.
+    position, sampled signal points and lengths of intervals of signal points.
     """
     position: int
     ref_kmer: str
     signal_points: np.ndarray
+    event_lens: np.ndarray
 
 
 """@dataclass

@@ -4,7 +4,7 @@ import random
 import shutil
 
 from tqdm import tqdm
-#import tqdm.contrib
+# import tqdm.contrib
 
 from typing import *
 
@@ -60,7 +60,7 @@ def sample_fast5(args):
 
     tqdm.write(f'{len(files)} files for sampling.')
 
-    # create output dir
+    # Create output dir
     try:
         args.out_folder.mkdir(parents=True, exist_ok=False)
     except FileExistsError:
